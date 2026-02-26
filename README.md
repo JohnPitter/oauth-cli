@@ -172,6 +172,11 @@ GEMINI_CLIENT_SECRET=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
 CLAUDE_CLIENT_ID=9d1c250a-e61b-44d9-88ed-5944d1962f5e
 ```
 
+> **If these values stop working**, the providers may have rotated their credentials. You can grab the updated ones by running the login command of each CLI and intercepting the auth URL:
+> - **OpenAI:** `codex login` — look for `client_id` in the browser URL
+> - **Gemini:** `gemini login` — look for `client_id` in the browser URL
+> - **Claude:** `claude login` — look for `client_id` in the browser URL
+>
 > **Why env vars instead of hardcoded?** GitHub Push Protection blocks commits containing OAuth client secrets. Since these values may also change when CLIs update, keeping them in `.env` makes it easy to update without code changes.
 
 ---
