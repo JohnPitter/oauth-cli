@@ -21,7 +21,7 @@ try {
   }
 } catch { /* no .env file, that's fine */ }
 
-import { getProvider, listProviderNames, type OAuthProviderConfig } from "./providers.js";
+import { getProvider, listProviderNames, type OAuthProviderConfig, type DeviceFlowProviderConfig } from "./providers.js";
 import { generateCodeVerifier, generateCodeChallenge, buildAuthUrl, exchangeCode } from "./oauth.js";
 import { captureOAuth } from "./browser.js";
 import { saveToken, type TokenData } from "./store.js";
@@ -146,6 +146,93 @@ async function handleOAuth(providerName: string, config: OAuthProviderConfig): P
   console.log(`\nTokens saved for ${providerName}. Check ~/.mcp-oauth/tokens.json`);
 }
 
+async function handleDeviceFlow(providerName: string, config: DeviceFlowProviderConfig): Promise<void> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...config.headers,
+  };
+
+  // Step 1: Request device code
+  const codeResponse = await fetch(config.deviceCodeUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      client_id: config.clientId,
+      scope: config.scopes,
+    }),
+  });
+
+  if (!codeResponse.ok) {
+    throw new Error(`Device code request failed (${codeResponse.status}): ${await codeResponse.text()}`);
+  }
+
+  const codeData = (await codeResponse.json()) as Record<string, unknown>;
+  const deviceCode = codeData.device_code as string;
+  const userCode = codeData.user_code as string;
+  const verificationUri = codeData.verification_uri as string;
+  const interval = ((codeData.interval as number) ?? 5) * 1000;
+
+  console.log(`\n  Code: ${userCode}`);
+  console.log(`  Open: ${verificationUri}`);
+  console.log(`\nEnter the code above in your browser, then wait...`);
+
+  // Open browser automatically
+  const { execFile } = await import("node:child_process");
+  const openCmd = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
+  const openArgs = process.platform === "win32" ? ["/c", "start", verificationUri] : [verificationUri];
+  execFile(openCmd, openArgs, () => {});
+
+  // Step 2: Poll for token
+  let accessToken = "";
+  let tokenType = "";
+  let scope = "";
+
+  while (true) {
+    await new Promise((r) => setTimeout(r, interval));
+
+    const tokenResponse = await fetch(config.tokenUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        client_id: config.clientId,
+        device_code: deviceCode,
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      }),
+    });
+
+    const tokenData = (await tokenResponse.json()) as Record<string, unknown>;
+
+    if (tokenData.error === "authorization_pending") {
+      continue;
+    }
+    if (tokenData.error === "slow_down") {
+      await new Promise((r) => setTimeout(r, 5000));
+      continue;
+    }
+    if (tokenData.error) {
+      throw new Error(`Device flow error: ${tokenData.error} — ${tokenData.error_description ?? ""}`);
+    }
+
+    accessToken = tokenData.access_token as string;
+    tokenType = (tokenData.token_type as string) ?? "bearer";
+    scope = (tokenData.scope as string) ?? "";
+    break;
+  }
+
+  await saveToken(providerName, {
+    provider: providerName,
+    type: "oauth2",
+    accessToken,
+    scopes: scope ? scope.split(/[\s,]+/) : undefined,
+    tokenType,
+    createdAt: new Date().toISOString(),
+  });
+
+  console.log("Token received!");
+  console.log(`\nTokens saved for ${providerName}. Check ~/.mcp-oauth/tokens.json`);
+}
+
 async function main(): Promise<void> {
   const providerName = process.argv[2];
 
@@ -166,6 +253,8 @@ async function main(): Promise<void> {
 
   if (provider.type === "api_key") {
     await handleApiKey(providerName, provider.instruction);
+  } else if (provider.type === "device_flow") {
+    await handleDeviceFlow(providerName, provider);
   } else {
     await handleOAuth(providerName, provider);
   }

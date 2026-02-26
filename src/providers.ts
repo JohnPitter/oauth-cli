@@ -13,6 +13,17 @@ export interface OAuthProviderConfig {
   extraParams?: Record<string, string>;
 }
 
+export interface DeviceFlowProviderConfig {
+  name: string;
+  displayName: string;
+  type: "device_flow";
+  clientId: string;
+  deviceCodeUrl: string;
+  tokenUrl: string;
+  scopes: string;
+  headers?: Record<string, string>;
+}
+
 export interface ApiKeyProviderConfig {
   name: string;
   displayName: string;
@@ -20,7 +31,7 @@ export interface ApiKeyProviderConfig {
   instruction: string;
 }
 
-export type ProviderConfig = OAuthProviderConfig | ApiKeyProviderConfig;
+export type ProviderConfig = OAuthProviderConfig | DeviceFlowProviderConfig | ApiKeyProviderConfig;
 
 function requireEnv(key: string): string {
   const value = process.env[key];
@@ -69,6 +80,23 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
       scopes: "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
       extraParams: {
         access_type: "offline",
+      },
+    }),
+  },
+  copilot: {
+    displayName: "GitHub Copilot",
+    build: () => ({
+      name: "copilot",
+      displayName: "GitHub Copilot",
+      type: "device_flow" as const,
+      clientId: requireEnv("COPILOT_CLIENT_ID"),
+      deviceCodeUrl: "https://github.com/login/device/code",
+      tokenUrl: "https://github.com/login/oauth/access_token",
+      scopes: "read:user",
+      headers: {
+        "editor-version": "Neovim/0.6.1",
+        "editor-plugin-version": "copilot.vim/1.16.0",
+        "user-agent": "GithubCopilot/1.155.0",
       },
     }),
   },

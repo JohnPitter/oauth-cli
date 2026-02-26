@@ -9,7 +9,7 @@
 
 **Capture OAuth2 tokens from AI CLI tools via browser automation**
 
-*Authenticate with OpenAI, Gemini, and Claude Code using their real OAuth flows*
+*Authenticate with OpenAI, Gemini, Claude Code, and GitHub Copilot using their real OAuth flows*
 
 [Quick Start](#quick-start) •
 [Providers](#providers) •
@@ -28,6 +28,7 @@ OAuth CLI opens a real browser window, lets you log in manually, and automatical
 - **OpenAI** — Codex CLI OAuth tokens (access_token + id_token + refresh_token)
 - **Gemini** — Google Gemini CLI OAuth tokens (access_token + refresh_token)
 - **Claude Code** — Anthropic Claude Code OAuth tokens (access_token + refresh_token)
+- **GitHub Copilot** — Copilot OAuth token via device flow (access_token)
 
 ---
 
@@ -66,6 +67,7 @@ source .env  # or use dotenv, direnv, etc.
 npx tsx src/index.ts openai
 npx tsx src/index.ts gemini
 npx tsx src/index.ts claude
+npx tsx src/index.ts copilot
 ```
 
 A Chrome window will open. Log in normally. The CLI captures the redirect automatically and saves your tokens.
@@ -91,6 +93,7 @@ Tokens saved for openai. Check ~/.mcp-oauth/tokens.json
 | **OpenAI** | OAuth2 + PKCE | ~10 days | access_token (JWT), id_token, refresh_token |
 | **Gemini** | OAuth2 + PKCE | ~1 hour | access_token (ya29...), id_token, refresh_token |
 | **Claude Code** | OAuth2 + PKCE | ~8 hours | access_token (sk-ant-oat01-...), refresh_token |
+| **GitHub Copilot** | Device Flow | Session | access_token (ghu_...) |
 
 ---
 
@@ -108,11 +111,14 @@ Tokens saved for openai. Check ~/.mcp-oauth/tokens.json
 9. Close browser
 ```
 
+**For GitHub Copilot**, a simpler [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) is used instead — no browser automation needed. The CLI displays a code, you enter it at github.com/login/device, and the token is received via polling.
+
 **Key technical details:**
 - Uses real Chrome (`channel: "chrome"`) to avoid "browser not secure" blocks from OAuth providers
 - Monitors requests via CDP `Network.requestWillBeSent` — catches redirects even when localhost isn't running
 - Falls back to bundled Chromium if Chrome is not installed
 - Supports both `application/x-www-form-urlencoded` and `application/json` token exchange formats
+- GitHub Copilot uses OAuth 2.0 device authorization grant (no Playwright required)
 
 ---
 
@@ -155,10 +161,11 @@ Edit `.env` with the values below. You only need to configure the providers you 
 | `GEMINI_CLIENT_ID` | Gemini | From [Gemini CLI source](https://github.com/google-gemini/gemini-cli) — Google OAuth "installed app" client |
 | `GEMINI_CLIENT_SECRET` | Gemini | Same source — Google's convention for installed apps includes a public client_secret |
 | `CLAUDE_CLIENT_ID` | Claude | From [Claude Code](https://github.com/anthropics/claude-code) — look for `client_id` in the OAuth flow |
+| `COPILOT_CLIENT_ID` | GitHub Copilot | From [copilot.vim](https://github.com/github/copilot.vim) — shared across all Copilot integrations |
 
 #### Tested values (from official CLI sources)
 
-These are the public OAuth credentials extracted from each CLI's source code. All three were tested and confirmed working as of February 2026:
+These are the public OAuth credentials extracted from each CLI's source code. All four were tested and confirmed working as of February 2026:
 
 ```bash
 # OpenAI (Codex CLI)
@@ -170,12 +177,16 @@ GEMINI_CLIENT_SECRET=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
 
 # Claude Code (Anthropic)
 CLAUDE_CLIENT_ID=9d1c250a-e61b-44d9-88ed-5944d1962f5e
+
+# GitHub Copilot (shared across copilot.vim, copilot.el, Copilot CLI, etc.)
+COPILOT_CLIENT_ID=Iv1.b507a08c87ecfe98
 ```
 
 > **If these values stop working**, the providers may have rotated their credentials. You can grab the updated ones by running the login command of each CLI and intercepting the auth URL:
 > - **OpenAI:** `codex login` — look for `client_id` in the browser URL
 > - **Gemini:** `gemini login` — look for `client_id` in the browser URL
 > - **Claude:** `claude login` — look for `client_id` in the browser URL
+> - **GitHub Copilot:** `gh copilot` or check [copilot.vim source](https://github.com/github/copilot.vim) for the `client_id`
 >
 > **Why env vars instead of hardcoded?** GitHub Push Protection blocks commits containing OAuth client secrets. Since these values may also change when CLIs update, keeping them in `.env` makes it easy to update without code changes.
 
