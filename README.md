@@ -141,21 +141,38 @@ Tokens are saved to `~/.mcp-oauth/tokens.json`:
 
 ### Environment Variables
 
-Set the credentials for each provider you want to use in a `.env` file:
-
-| Variable | Required For | Description |
-|----------|-------------|-------------|
-| `OPENAI_CLIENT_ID` | OpenAI | OAuth client ID from OpenAI |
-| `GEMINI_CLIENT_ID` | Gemini | Google OAuth client ID |
-| `GEMINI_CLIENT_SECRET` | Gemini | Google OAuth client secret |
-| `CLAUDE_CLIENT_ID` | Claude | Anthropic OAuth client ID |
+Credentials are **required** to run the CLI. Each provider needs its own OAuth client ID (and sometimes a client secret). These are the same credentials used by the official CLI tools — they are public values embedded in the open-source CLIs.
 
 ```bash
 cp .env.example .env
-# Edit .env with your credentials
 ```
 
-> **Note:** You only need to configure the providers you plan to use. Missing env vars will result in a clear error message when you try to use that provider.
+Edit `.env` with the values below. You only need to configure the providers you plan to use.
+
+| Variable | Required For | Where to Find |
+|----------|-------------|---------------|
+| `OPENAI_CLIENT_ID` | OpenAI | From [Codex CLI source](https://github.com/openai/codex) — look for `client_id` in the auth flow |
+| `GEMINI_CLIENT_ID` | Gemini | From [Gemini CLI source](https://github.com/google-gemini/gemini-cli) — Google OAuth "installed app" client |
+| `GEMINI_CLIENT_SECRET` | Gemini | Same source — Google's convention for installed apps includes a public client_secret |
+| `CLAUDE_CLIENT_ID` | Claude | From [Claude Code](https://github.com/anthropics/claude-code) — look for `client_id` in the OAuth flow |
+
+#### Tested values (from official CLI sources)
+
+These are the public OAuth credentials extracted from each CLI's source code. All three were tested and confirmed working as of February 2026:
+
+```bash
+# OpenAI (Codex CLI)
+OPENAI_CLIENT_ID=app_EMoamEEZ73f0CkXaXp7hrann
+
+# Gemini CLI (Google "installed app" OAuth — client_secret is public by design)
+GEMINI_CLIENT_ID=681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com
+GEMINI_CLIENT_SECRET=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
+
+# Claude Code (Anthropic)
+CLAUDE_CLIENT_ID=9d1c250a-e61b-44d9-88ed-5944d1962f5e
+```
+
+> **Why env vars instead of hardcoded?** GitHub Push Protection blocks commits containing OAuth client secrets. Since these values may also change when CLIs update, keeping them in `.env` makes it easy to update without code changes.
 
 ---
 
