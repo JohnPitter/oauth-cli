@@ -143,7 +143,7 @@ async function handleOAuth(providerName: string, config: OAuthProviderConfig): P
   }
 
   await saveToken(providerName, tokenData);
-  console.log(`\nTokens saved for ${providerName}. Check ~/.mcp-oauth/tokens.json`);
+  console.log(`\nTokens saved for ${providerName}. Check ~/.oauth-cli/tokens.json`);
 }
 
 async function handleDeviceFlow(providerName: string, config: DeviceFlowProviderConfig): Promise<void> {
@@ -230,7 +230,7 @@ async function handleDeviceFlow(providerName: string, config: DeviceFlowProvider
   });
 
   console.log("Token received!");
-  console.log(`\nTokens saved for ${providerName}. Check ~/.mcp-oauth/tokens.json`);
+  console.log(`\nTokens saved for ${providerName}. Check ~/.oauth-cli/tokens.json`);
 }
 
 async function main(): Promise<void> {

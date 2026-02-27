@@ -126,7 +126,7 @@ Opening browser...
 6. Monitor network requests via CDP (Chrome DevTools Protocol)
 7. Capture the redirect URL containing the authorization code
 8. Exchange code for tokens (POST to token endpoint)
-9. Save tokens to ~/.mcp-oauth/tokens.json
+9. Save tokens to ~/.oauth-cli/tokens.json
 10. Close browser
 ```
 
@@ -143,7 +143,7 @@ Opening browser...
 
 ## Token Storage
 
-Tokens are saved to `~/.mcp-oauth/tokens.json`:
+Tokens are saved to `~/.oauth-cli/tokens.json`:
 
 ```json
 {
@@ -221,7 +221,7 @@ oauth-cli/
 │   ├── providers.ts    # Provider configs (URLs, scopes, redirect patterns)
 │   ├── oauth.ts        # PKCE generation + token exchange
 │   ├── browser.ts      # Playwright browser automation + CDP capture
-│   └── store.ts        # Token persistence (~/.mcp-oauth/tokens.json)
+│   └── store.ts        # Token persistence (~/.oauth-cli/tokens.json)
 ├── package.json
 ├── tsconfig.json
 └── .env.example

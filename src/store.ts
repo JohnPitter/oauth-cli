@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const STORE_DIR = join(homedir(), ".mcp-oauth");
+const STORE_DIR = join(homedir(), ".oauth-cli");
 const TOKENS_FILE = join(STORE_DIR, "tokens.json");
 
 export interface TokenData {
