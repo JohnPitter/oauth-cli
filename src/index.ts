@@ -22,6 +22,7 @@ try {
 } catch { /* no .env file, that's fine */ }
 
 import { getProvider, listProviderNames, type OAuthProviderConfig, type DeviceFlowProviderConfig } from "./providers.js";
+import { resolveCredentials } from "./discovery.js";
 import { generateCodeVerifier, generateCodeChallenge, buildAuthUrl, exchangeCode } from "./oauth.js";
 import { captureOAuth } from "./browser.js";
 import { saveToken, type TokenData } from "./store.js";
@@ -242,12 +243,14 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const provider = getProvider(providerName);
-  if (!provider) {
+  if (!listProviderNames().includes(providerName.toLowerCase())) {
     console.error(`Unknown provider: ${providerName}`);
     console.error(`Available: ${listProviderNames().join(", ")}`);
     process.exit(1);
   }
+
+  const creds = await resolveCredentials(providerName);
+  const provider = getProvider(providerName, creds)!;
 
   console.log(`Authenticating with ${provider.displayName}...`);
 

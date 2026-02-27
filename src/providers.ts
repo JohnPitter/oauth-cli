@@ -33,27 +33,21 @@ export interface ApiKeyProviderConfig {
 
 export type ProviderConfig = OAuthProviderConfig | DeviceFlowProviderConfig | ApiKeyProviderConfig;
 
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing environment variable: ${key}\nSet it in a .env file or export it before running.`);
-  }
-  return value;
-}
+import type { Credentials } from "./discovery.js";
 
 interface ProviderFactory {
   displayName: string;
-  build: () => ProviderConfig;
+  build: (creds: Credentials) => ProviderConfig;
 }
 
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   openai: {
     displayName: "OpenAI (Codex CLI)",
-    build: () => ({
+    build: (creds) => ({
       name: "openai",
       displayName: "OpenAI (Codex CLI)",
       type: "oauth2",
-      clientId: requireEnv("OPENAI_CLIENT_ID"),
+      clientId: creds.clientId,
       authorizationUrl: "https://auth.openai.com/oauth/authorize",
       tokenUrl: "https://auth.openai.com/oauth/token",
       redirectUri: "http://localhost:1455/auth/callback",
@@ -67,12 +61,12 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   },
   gemini: {
     displayName: "Gemini CLI",
-    build: () => ({
+    build: (creds) => ({
       name: "gemini",
       displayName: "Gemini CLI",
       type: "oauth2",
-      clientId: requireEnv("GEMINI_CLIENT_ID"),
-      clientSecret: requireEnv("GEMINI_CLIENT_SECRET"),
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
       authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
       tokenUrl: "https://oauth2.googleapis.com/token",
       redirectUri: "http://127.0.0.1:14355/oauth2callback",
@@ -85,11 +79,11 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   },
   copilot: {
     displayName: "GitHub Copilot",
-    build: () => ({
+    build: (creds) => ({
       name: "copilot",
       displayName: "GitHub Copilot",
       type: "device_flow" as const,
-      clientId: requireEnv("COPILOT_CLIENT_ID"),
+      clientId: creds.clientId,
       deviceCodeUrl: "https://github.com/login/device/code",
       tokenUrl: "https://github.com/login/oauth/access_token",
       scopes: "read:user",
@@ -102,11 +96,11 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   },
   claude: {
     displayName: "Claude Code",
-    build: () => ({
+    build: (creds) => ({
       name: "claude",
       displayName: "Claude Code",
       type: "oauth2",
-      clientId: requireEnv("CLAUDE_CLIENT_ID"),
+      clientId: creds.clientId,
       authorizationUrl: "https://claude.ai/oauth/authorize",
       tokenUrl: "https://console.anthropic.com/v1/oauth/token",
       tokenContentType: "json" as const,
@@ -120,10 +114,10 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   },
 };
 
-export function getProvider(name: string): ProviderConfig | undefined {
+export function getProvider(name: string, creds: Credentials): ProviderConfig | undefined {
   const factory = PROVIDER_FACTORIES[name.toLowerCase()];
   if (!factory) return undefined;
-  return factory.build();
+  return factory.build(creds);
 }
 
 export function listProviderNames(): string[] {
