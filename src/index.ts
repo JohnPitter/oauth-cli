@@ -110,7 +110,6 @@ async function handleOAuth(providerName: string, config: OAuthProviderConfig): P
     console.log("\nExchanging authorization code for tokens...");
     const tokens = await exchangeCode(config, code, codeVerifier, {
       redirectUri: actualRedirectUri,
-      state: params["state"] ?? state,
     });
 
     const expiresAt = tokens.expiresIn

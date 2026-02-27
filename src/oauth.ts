@@ -40,7 +40,7 @@ export async function exchangeCode(
   provider: OAuthProviderConfig,
   code: string,
   codeVerifier: string,
-  opts?: { redirectUri?: string; state?: string },
+  opts?: { redirectUri?: string },
 ): Promise<TokenResponse> {
   // Clean code — remove hash fragments or extra params that may be appended
   const cleanCode = code.split("#")[0].split("&")[0];
@@ -52,7 +52,6 @@ export async function exchangeCode(
     client_id: provider.clientId,
     code_verifier: codeVerifier,
     ...(provider.clientSecret ? { client_secret: provider.clientSecret } : {}),
-    ...(opts?.state ? { state: opts.state } : {}),
   };
 
   const useJson = provider.tokenContentType === "json";

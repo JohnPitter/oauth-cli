@@ -49,39 +49,57 @@ cd oauth-cli
 npm install
 ```
 
-### Configure
-
-Copy the example env file and fill in the credentials for the providers you want to use:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with the client IDs/secrets from each provider's OAuth configuration. You only need to set the variables for providers you plan to use.
-
 ### Usage
 
 ```bash
-# Load env vars and authenticate with a provider
-source .env  # or use dotenv, direnv, etc.
 npx tsx src/index.ts openai
 npx tsx src/index.ts gemini
 npx tsx src/index.ts claude
 npx tsx src/index.ts copilot
 ```
 
-A Chrome window will open. Log in normally. The CLI captures the redirect automatically and saves your tokens.
+The CLI **automatically discovers credentials** — no `.env` file needed for most providers. A Chrome window will open, you log in normally, and the CLI captures the redirect and saves your tokens.
 
+#### Credential autodiscovery
+
+The CLI resolves credentials in 3 layers, in order:
+
+| Layer | How it works | Providers |
+|-------|-------------|-----------|
+| **1. Environment variable** | Checks `OPENAI_CLIENT_ID`, `GEMINI_CLIENT_ID`, etc. from `.env` or environment | All |
+| **2. Upstream source fetch** | Fetches the provider's open-source CLI code from GitHub and extracts the `client_id` via regex | OpenAI, Gemini |
+| **3. URL fallback** | Asks you to run the provider's login command and paste the OAuth URL that opens in the browser | Claude, Copilot |
+
+**Example — autodiscovery (no .env needed):**
+```
+$ npx tsx src/index.ts openai
+Fetching credentials from upstream source...
+Credentials discovered automatically.
+Authenticating with OpenAI (Codex CLI)...
+Opening browser...
+```
+
+**Example — URL fallback (Claude, Copilot):**
+```
+$ npx tsx src/index.ts claude
+No credentials found for claude.
+Run "claude login" and paste the URL that opens in your browser:
+
+> https://claude.ai/oauth/authorize?client_id=9d1c250a-...&scope=...
+Authenticating with Claude Code...
+Opening browser...
+```
+
+In the fallback case, you need to:
+1. Open another terminal and run the provider's login command (e.g. `claude login`)
+2. Copy the URL that opens in your browser's address bar
+3. Paste it back in the CLI prompt — the `client_id` is extracted from the URL query params automatically
+
+**Example — with .env (explicit):**
 ```
 $ npx tsx src/index.ts openai
 Authenticating with OpenAI (Codex CLI)...
-Opening browser for OpenAI (Codex CLI) authentication...
-Redirect captured!
-
-Exchanging authorization code for tokens...
-Token exchange successful.
-
-Tokens saved for openai. Check ~/.mcp-oauth/tokens.json
+Opening browser...
 ```
 
 ---
@@ -100,15 +118,16 @@ Tokens saved for openai. Check ~/.mcp-oauth/tokens.json
 ## How It Works
 
 ```
-1. Generate PKCE code_verifier + code_challenge
-2. Build OAuth authorization URL
-3. Open Chrome via Playwright (headed mode)
-4. User logs in manually in the browser
-5. Monitor network requests via CDP (Chrome DevTools Protocol)
-6. Capture the redirect URL containing the authorization code
-7. Exchange code for tokens (POST to token endpoint)
-8. Save tokens to ~/.mcp-oauth/tokens.json
-9. Close browser
+1. Discover credentials (env var → source fetch → URL fallback)
+2. Generate PKCE code_verifier + code_challenge
+3. Build OAuth authorization URL
+4. Open Chrome via Playwright (headed mode)
+5. User logs in manually in the browser
+6. Monitor network requests via CDP (Chrome DevTools Protocol)
+7. Capture the redirect URL containing the authorization code
+8. Exchange code for tokens (POST to token endpoint)
+9. Save tokens to ~/.mcp-oauth/tokens.json
+10. Close browser
 ```
 
 **For GitHub Copilot**, a simpler [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) is used instead — no browser automation needed. The CLI displays a code, you enter it at github.com/login/device, and the token is received via polling.
@@ -145,9 +164,9 @@ Tokens are saved to `~/.mcp-oauth/tokens.json`:
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (optional)
 
-Credentials are **required** to run the CLI. Each provider needs its own OAuth client ID (and sometimes a client secret). These are the same credentials used by the official CLI tools — they are public values embedded in the open-source CLIs.
+Credentials are **discovered automatically** for most providers (see [autodiscovery](#credential-autodiscovery) above). You only need a `.env` file if you want to pin specific values or skip the autodiscovery step.
 
 ```bash
 cp .env.example .env
@@ -198,7 +217,8 @@ COPILOT_CLIENT_ID=Iv1.b507a08c87ecfe98
 oauth-cli/
 ├── src/
 │   ├── index.ts        # CLI entry point
-│   ├── providers.ts    # Provider configs (URLs, client IDs, scopes)
+│   ├── discovery.ts    # Credential autodiscovery (env → fetch → URL fallback)
+│   ├── providers.ts    # Provider configs (URLs, scopes, redirect patterns)
 │   ├── oauth.ts        # PKCE generation + token exchange
 │   ├── browser.ts      # Playwright browser automation + CDP capture
 │   └── store.ts        # Token persistence (~/.mcp-oauth/tokens.json)
