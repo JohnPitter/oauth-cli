@@ -9,10 +9,7 @@
 
 **Capture OAuth2 tokens from AI CLI tools via browser automation**
 
-*Authenticate with OpenAI, Gemini, Claude Code, and GitHub Copilot using their real OAuth flows*
-
 [Quick Start](#quick-start) •
-[Providers](#providers) •
 [How It Works](#how-it-works) •
 [Configuration](#configuration)
 
@@ -20,26 +17,12 @@
 
 ---
 
-## Overview
-
-OAuth CLI opens a real browser window, lets you log in manually, and automatically captures the OAuth tokens when the provider redirects back. Tokens are saved locally for use with other tools.
-
-**Supported providers:**
-- **OpenAI** — Codex CLI OAuth tokens (access_token + id_token + refresh_token)
-- **Gemini** — Google Gemini CLI OAuth tokens (access_token + refresh_token)
-- **Claude Code** — Anthropic Claude Code OAuth tokens (access_token + refresh_token)
-- **GitHub Copilot** — Copilot OAuth token via device flow (access_token)
-
----
-
 ## Quick Start
 
 ### Requirements
 
-| Requirement | Version |
-|-------------|---------|
-| Node.js     | 18+     |
-| Google Chrome | Any recent version |
+- Node.js 18+
+- Google Chrome (falls back to bundled Chromium, but some providers block it)
 
 ### Install
 
@@ -58,49 +41,7 @@ npx tsx src/index.ts claude
 npx tsx src/index.ts copilot
 ```
 
-The CLI **automatically discovers credentials** — no `.env` file needed for most providers. A Chrome window will open, you log in normally, and the CLI captures the redirect and saves your tokens.
-
-#### Credential autodiscovery
-
-The CLI resolves credentials in 3 layers, in order:
-
-| Layer | How it works | Providers |
-|-------|-------------|-----------|
-| **1. Environment variable** | Checks `OPENAI_CLIENT_ID`, `GEMINI_CLIENT_ID`, etc. from `.env` or environment | All |
-| **2. Upstream source fetch** | Fetches the provider's open-source CLI code from GitHub and extracts the `client_id` via regex | OpenAI, Gemini |
-| **3. URL fallback** | Asks you to run the provider's login command and paste the OAuth URL that opens in the browser | Claude, Copilot |
-
-**Example — autodiscovery (no .env needed):**
-```
-$ npx tsx src/index.ts openai
-Fetching credentials from upstream source...
-Credentials discovered automatically.
-Authenticating with OpenAI (Codex CLI)...
-Opening browser...
-```
-
-**Example — URL fallback (Claude, Copilot):**
-```
-$ npx tsx src/index.ts claude
-No credentials found for claude.
-Run "claude login" and paste the URL that opens in your browser:
-
-> https://claude.ai/oauth/authorize?client_id=9d1c250a-...&scope=...
-Authenticating with Claude Code...
-Opening browser...
-```
-
-In the fallback case, you need to:
-1. Open another terminal and run the provider's login command (e.g. `claude login`)
-2. Copy the URL that opens in your browser's address bar
-3. Paste it back in the CLI prompt — the `client_id` is extracted from the URL query params automatically
-
-**Example — with .env (explicit):**
-```
-$ npx tsx src/index.ts openai
-Authenticating with OpenAI (Codex CLI)...
-Opening browser...
-```
+No `.env` file needed — credentials are discovered automatically for OpenAI and Gemini. For Claude and Copilot, the CLI will ask you to paste a login URL (see [autodiscovery](#credential-autodiscovery)).
 
 ---
 
@@ -123,25 +64,14 @@ Opening browser...
 3. Build OAuth authorization URL
 4. Open Chrome via Playwright (headed mode)
 5. User logs in manually in the browser
-6. Monitor network requests via CDP (Chrome DevTools Protocol)
-7. Capture the redirect URL containing the authorization code
-8. Exchange code for tokens (POST to token endpoint)
-9. Save tokens to ~/.oauth-cli/tokens.json
-10. Close browser
+6. Capture the redirect via CDP (Chrome DevTools Protocol)
+7. Exchange authorization code for tokens
+8. Save tokens to ~/.oauth-cli/tokens.json
 ```
 
-**For GitHub Copilot**, a simpler [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) is used instead — no browser automation needed. The CLI displays a code, you enter it at github.com/login/device, and the token is received via polling.
+GitHub Copilot uses a [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) instead — the CLI displays a code, you enter it at github.com/login/device, and the token is received via polling. No browser automation needed.
 
-**Key technical details:**
-- Uses real Chrome (`channel: "chrome"`) to avoid "browser not secure" blocks from OAuth providers
-- Monitors requests via CDP `Network.requestWillBeSent` — catches redirects even when localhost isn't running
-- Falls back to bundled Chromium if Chrome is not installed
-- Supports both `application/x-www-form-urlencoded` and `application/json` token exchange formats
-- GitHub Copilot uses OAuth 2.0 device authorization grant (no Playwright required)
-
----
-
-## Token Storage
+### Token storage
 
 Tokens are saved to `~/.oauth-cli/tokens.json`:
 
@@ -164,50 +94,52 @@ Tokens are saved to `~/.oauth-cli/tokens.json`:
 
 ## Configuration
 
-### Environment Variables (optional)
+### Credential autodiscovery
 
-Credentials are **discovered automatically** for most providers (see [autodiscovery](#credential-autodiscovery) above). You only need a `.env` file if you want to pin specific values or skip the autodiscovery step.
+The CLI resolves credentials in 3 layers, in order:
+
+| Layer | How it works | Providers |
+|-------|-------------|-----------|
+| **1. Environment variable** | Checks `OPENAI_CLIENT_ID`, `GEMINI_CLIENT_ID`, etc. | All |
+| **2. Upstream source fetch** | Fetches the provider's open-source CLI code from GitHub and extracts the `client_id` via regex | OpenAI, Gemini |
+| **3. URL fallback** | Asks you to run the provider's login command and paste the OAuth URL | Claude, Copilot |
+
+**Autodiscovery (OpenAI, Gemini):**
+```
+$ npx tsx src/index.ts openai
+Fetching credentials from upstream source...
+Credentials discovered automatically.
+Authenticating with OpenAI (Codex CLI)...
+```
+
+**URL fallback (Claude, Copilot):**
+```
+$ npx tsx src/index.ts claude
+No credentials found for claude.
+Run "claude login" and paste the URL that opens in your browser:
+
+> https://claude.ai/oauth/authorize?client_id=9d1c250a-...&scope=...
+```
+
+For the URL fallback: open another terminal, run the provider's login command (e.g. `claude login`), copy the URL from your browser's address bar, and paste it. The `client_id` is extracted from the query params automatically.
+
+### Environment variables (optional)
+
+You only need a `.env` file if you want to pin specific values or skip autodiscovery.
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with the values below. You only need to configure the providers you plan to use.
+| Variable | Provider |
+|----------|----------|
+| `OPENAI_CLIENT_ID` | OpenAI |
+| `GEMINI_CLIENT_ID` | Gemini |
+| `GEMINI_CLIENT_SECRET` | Gemini |
+| `CLAUDE_CLIENT_ID` | Claude |
+| `COPILOT_CLIENT_ID` | Copilot |
 
-| Variable | Required For | Where to Find |
-|----------|-------------|---------------|
-| `OPENAI_CLIENT_ID` | OpenAI | From [Codex CLI source](https://github.com/openai/codex) — look for `client_id` in the auth flow |
-| `GEMINI_CLIENT_ID` | Gemini | From [Gemini CLI source](https://github.com/google-gemini/gemini-cli) — Google OAuth "installed app" client |
-| `GEMINI_CLIENT_SECRET` | Gemini | Same source — Google's convention for installed apps includes a public client_secret |
-| `CLAUDE_CLIENT_ID` | Claude | From [Claude Code](https://github.com/anthropics/claude-code) — look for `client_id` in the OAuth flow |
-| `COPILOT_CLIENT_ID` | GitHub Copilot | From [copilot.vim](https://github.com/github/copilot.vim) — shared across all Copilot integrations |
-
-#### Tested values (from official CLI sources)
-
-These are the public OAuth credentials extracted from each CLI's source code. All four were tested and confirmed working as of February 2026:
-
-```bash
-# OpenAI (Codex CLI)
-OPENAI_CLIENT_ID=app_EMoamEEZ73f0CkXaXp7hrann
-
-# Gemini CLI (Google "installed app" OAuth — client_secret is public by design)
-GEMINI_CLIENT_ID=681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com
-GEMINI_CLIENT_SECRET=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
-
-# Claude Code (Anthropic)
-CLAUDE_CLIENT_ID=9d1c250a-e61b-44d9-88ed-5944d1962f5e
-
-# GitHub Copilot (shared across copilot.vim, copilot.el, Copilot CLI, etc.)
-COPILOT_CLIENT_ID=Iv1.b507a08c87ecfe98
-```
-
-> **If these values stop working**, the providers may have rotated their credentials. You can grab the updated ones by running the login command of each CLI and intercepting the auth URL:
-> - **OpenAI:** `codex login` — look for `client_id` in the browser URL
-> - **Gemini:** `gemini login` — look for `client_id` in the browser URL
-> - **Claude:** `claude login` — look for `client_id` in the browser URL
-> - **GitHub Copilot:** `gh copilot` or check [copilot.vim source](https://github.com/github/copilot.vim) for the `client_id`
->
-> **Why env vars instead of hardcoded?** GitHub Push Protection blocks commits containing OAuth client secrets. Since these values may also change when CLIs update, keeping them in `.env` makes it easy to update without code changes.
+> **Why env vars instead of hardcoded?** GitHub Push Protection blocks commits containing OAuth client secrets. Keeping them in `.env` also makes it easy to update if providers rotate credentials.
 
 ---
 
@@ -229,33 +161,6 @@ oauth-cli/
 
 ---
 
-## Compatibility
-
-| OS | Chrome | Status |
-|----|--------|--------|
-| Windows 10/11 | Any recent | Tested |
-| macOS | Any recent | Should work |
-| Linux | Any recent | Should work |
-
-> **Note:** If Chrome is not installed, Playwright falls back to bundled Chromium. Some OAuth providers may block Chromium as "not a secure browser".
-
----
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file.
-
----
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
----
-
-## Support
-
-- **Issues:** [GitHub Issues](https://github.com/JohnPitter/oauth-cli/issues)
